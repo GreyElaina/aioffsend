@@ -22,7 +22,7 @@ class FFSendAPI(object):
 
     def _auth_header(self, auth_key, nonce):
         sig = hmac.new(auth_key, nonce, sha256).digest()
-        return 'send-v1 ' + url_b64encode(sig)
+        return f'send-v1 {url_b64encode(sig)}'
 
     def _get_nonce(self, id):
         if id not in self._nonce_cache:
@@ -47,11 +47,7 @@ class FFSendAPI(object):
         data: raw encrypted file data to upload
         '''
         data = b"".join(list(data))
-        async with self.session.post(self.baseurl + "api/upload", data=data, headers={
-            'X-File-Metadata': url_b64encode(metadata),
-            'Authorization': 'send-v1 ' + url_b64encode(auth_key),
-            'Content-Type': 'application/octet-stream'
-        }) as response:
+        async with self.session.post(f'{self.baseurl}api/upload', data=data, headers={'X-File-Metadata': url_b64encode(metadata), 'Authorization': f'send-v1 {url_b64encode(auth_key)}', 'Content-Type': 'application/octet-stream'}) as response:
             if response.status == 200:
                 id = (await response.json())['id']
                 self._set_nonce(id, response)
@@ -62,7 +58,7 @@ class FFSendAPI(object):
 
         id: file id
         '''
-        async with self.session.get(self.baseurl + "api/exists/" + id) as response:
+        async with self.session.get(f'{self.baseurl}api/exists/{id}') as response:
             assert response.status == 200
 
     @asynccontextmanager
@@ -77,11 +73,7 @@ class FFSendAPI(object):
         # TODO configurable retries
         for _ in range(5):
             nonce = self._get_nonce(id)
-            async with self.session.get(
-                self.baseurl + "api/download/" + id,
-                stream=True,
-                headers={'Authorization': self._auth_header(auth_key, nonce)}
-            ) as response:
+            async with self.session.get(f'{self.baseurl}api/download/{id}', stream=True, headers={'Authorization': self._auth_header(auth_key, nonce)}) as response:
                 self._set_nonce(id, response)
                 if response.status_code == 401:
                     continue
@@ -100,11 +92,7 @@ class FFSendAPI(object):
         # TODO configurable retries
         for _ in range(5):
             nonce = self._get_nonce(id)
-            async with self.session.get(
-                self.baseurl + "api/metadata/" + id,
-                stream=True,
-                headers={'Authorization': self._auth_header(auth_key, nonce)}
-            ) as response:
+            async with self.session.get(f'{self.baseurl}api/metadata/{id}', stream=True, headers={'Authorization': self._auth_header(auth_key, nonce)}) as response:
                 self._set_nonce(id, response)
                 if response.status_code == 401:
                     continue
@@ -118,11 +106,7 @@ class FFSendAPI(object):
         id: file id
         owner_token: owner token from upload
         '''
-        async with self.session.get(
-            self.baseurl + 'api/delete/' + id,
-            headers={'Content-Type': 'application/json'},
-            json={'owner_token': owner_token}
-        ) as response:
+        async with self.session.get(f'{self.baseurl}api/delete/{id}', headers={'Content-Type': 'application/json'}, json={'owner_token': owner_token}) as response:
             yield response
 
     @asynccontextmanager
@@ -133,11 +117,7 @@ class FFSendAPI(object):
         owner_token: owner token from upload
         auth_key: file's new auth key
         '''
-        async with self.session.get(
-            self.baseurl + 'api/password/' + id,
-            headers={'Content-Type': 'application/json'},
-            json={'auth': url_b64encode(auth_key), 'owner_token': owner_token}
-        ) as response:
+        async with self.session.get(f'{self.baseurl}api/password/{id}', headers={'Content-Type': 'application/json'}, json={'auth': url_b64encode(auth_key), 'owner_token': owner_token}) as response:
             yield response
 
     @asynccontextmanager
@@ -147,11 +127,7 @@ class FFSendAPI(object):
         id: file id
         owner_token: owner token from upload
         '''
-        async with self.session.post(
-            self.baseurl + 'api/info/' + id,
-            headers={'Content-Type': 'application/json'},
-            json={'owner_token': owner_token}
-        ) as response:
+        async with self.session.post(f'{self.baseurl}api/info/{id}', headers={'Content-Type': 'application/json'}, json={'owner_token': owner_token}) as response:
             yield response
 
     @asynccontextmanager
@@ -164,9 +140,5 @@ class FFSendAPI(object):
         '''
         params = new_params.copy()
         params['owner_token'] = owner_token
-        async with self.session.post(
-            self.baseurl + 'api/params/' + id,
-            headers={'Content-Type': 'application/json'},
-            json=params
-        ) as response:
+        async with self.session.post(f'{self.baseurl}api/params/{id}', headers={'Content-Type': 'application/json'}, json=params) as response:
             yield response

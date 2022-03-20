@@ -65,9 +65,7 @@ def encrypt_file_iter(secret, file, recordsize=65536):
 
     idlen = 0
     salt = os.urandom(16)
-    header = struct.pack('>16sIB', salt, recordsize, idlen)
-    yield header
-
+    yield struct.pack('>16sIB', salt, recordsize, idlen)
     ciphergen = file_cipher_generator(secret, salt)
     chunksize = recordsize - padtaglen
     # this loop structure allows us to handle zero-byte files properly
@@ -75,11 +73,11 @@ def encrypt_file_iter(secret, file, recordsize=65536):
     while True:
         nextchunk = file.read(chunksize)
         # add padding
-        if not nextchunk:
-            # reached EOF, this is the last chunk
-            chunk += b'\x02'
-        else:
-            chunk += b'\x01' + b'\x00' * (recordsize - len(chunk) - padtaglen)
+        chunk += (
+            b'\x01' + b'\x00' * (recordsize - len(chunk) - padtaglen)
+            if nextchunk
+            else b'\x02'
+        )
 
         # encrypt and append GCM tag
         cipher = next(ciphergen)

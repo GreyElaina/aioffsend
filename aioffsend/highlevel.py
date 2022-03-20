@@ -6,16 +6,14 @@ import mimetypes
 from .midlevel import FFSend
 
 def parse_url(url):
-    secret = None
-    m = re.match(r'^https://(.*)/download/(\w+)/?#?([\w_-]+)?$', url)
-    if m:
-        service = 'https://' + m.group(1) + '/'
-        fid = m.group(2)
-        if m.group(3):
-            secret = url_b64decode(m.group(3))
-    else:
-        raise Exception("Failed to parse URL %s" % url)
+    if not (
+        m := re.match(r'^https://(.*)/download/(\w+)/?#?([\w_-]+)?$', url)
+    ):
+        raise Exception(f"Failed to parse URL {url}")
 
+    service = f'https://{m.group(1)}/'
+    fid = m.group(2)
+    secret = url_b64decode(m.group(3)) if m.group(3) else None
     return service, fid, secret
 
 async def _upload(firefox_send: FFSend, filename, file, password=None, timeLimit: int = None):
@@ -55,11 +53,10 @@ async def upload(service, filename, file=None, password=None, timeLimit=None):
     returns the share URL and owner token for the file
     '''
 
-    if file is None:
-        with open(filename, "rb") as file:
-            return await _upload(service, filename, file, password, timeLimit)
-    else:
+    if file is not None:
         return await _upload(service, filename, file, password)
+    with open(filename, "rb") as file:
+        return await _upload(service, filename, file, password, timeLimit)
 
 async def delete(service: FFSend, fid, token):
     await service.owner_delete(fid, token)
@@ -79,15 +76,11 @@ async def download(service, fid, secret, dest, password=None, url=None):
 
     filename = metadata['metadata']['name']
 
-    if os.path.isdir(dest):
-        filename = os.path.join(dest, filename)
-    else:
-        filename = dest
-
+    filename = os.path.join(dest, filename) if os.path.isdir(dest) else dest
     try:
-        with open(filename + '.tmp', 'wb') as outf:
+        with open(f'{filename}.tmp', 'wb') as outf:
             await send.download(fid, secret, outf, password, url)
     except Exception:
-        os.unlink(filename + '.tmp')
+        os.unlink(f'{filename}.tmp')
     else:
-        os.rename(filename + '.tmp', filename)
+        os.rename(f'{filename}.tmp', filename)
